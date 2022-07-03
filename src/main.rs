@@ -60,8 +60,8 @@ fn num_to_superscript(number: usize) -> &'static str {
 #[derive(Debug, Clone)]
 struct Cell {
     initial: bool,
-    value: Option<i32>,
-    options: Vec<i32>,
+    value: Option<u8>,
+    options: Vec<u8>,
 }
 
 impl std::default::Default for Cell {
@@ -88,9 +88,9 @@ impl fmt::Display for Cell {
 }
 
 impl Cell {
-    pub fn new(input: i32, initial: bool) -> Cell {
+    pub fn new(input: u8, initial: bool) -> Cell {
         let value = if input == 0 { None } else { Some(input) };
-        let options: Vec<i32>;
+        let options: Vec<u8>;
         if value.is_some() {
             options = vec![];
         } else {
@@ -135,15 +135,15 @@ impl fmt::Display for Board {
     }
 }
 
-fn index_to_col(index: usize) -> usize {
+fn index_to_col(index: u8) -> u8 {
     index % 9
 }
 
-fn index_to_row(index: usize) -> usize {
+fn index_to_row(index: u8) -> u8 {
     index / 9
 }
 
-fn index_to_box(index: usize) -> usize {
+fn index_to_box(index: u8) -> u8 {
     let col = index_to_col(index);
     let row = index_to_row(index);
     let result = ((row / 3) * 3) + (col / 3);
@@ -156,17 +156,17 @@ impl Board {
         Board { cells: cells }
     }
 
-    pub fn collapse_cell(&mut self, index: usize) {
-        let cell = &self.cells[index];
+    pub fn collapse_cell(&mut self, index: u8) {
+        let cell = &self.cells[index as usize];
         if cell.value.is_some() {
             return;
         }
 
-        let mut existing_values: Vec<i32> = vec![];
+        let mut existing_values: Vec<u8> = vec![];
         // Get the cells in the column
         let col = index_to_col(index);
-        let col_values = self
-            .get_col(col as i32)
+        let col_values: Vec<u8> = self
+            .get_col(col)
             .iter()
             .filter(|c| c.value.is_some())
             .map(|c| c.value.unwrap())
@@ -177,7 +177,7 @@ impl Board {
         // Get the cells in the row
         let row = index_to_row(index);
         let row_values = self
-            .get_row(row as i32)
+            .get_row(row)
             .iter()
             .filter(|c| c.value.is_some())
             .map(|c| c.value.unwrap())
@@ -204,9 +204,9 @@ impl Board {
         // println!("existing options: {:?}", cell.options);
         // println!("existing values: {:?}", existing_values);
 
-        let s1: HashSet<i32> = cell.options.iter().cloned().collect();
-        let s2: HashSet<i32> = existing_values.iter().cloned().collect();
-        let result: Vec<i32> = (&s1 - &s2).into_iter().collect();
+        let s1: HashSet<u8> = cell.options.iter().cloned().collect();
+        let s2: HashSet<u8> = existing_values.iter().cloned().collect();
+        let result: Vec<u8> = (&s1 - &s2).into_iter().collect();
 
         // println!("result: {:?}", result);
         // if result.len() == 0 {
@@ -215,22 +215,22 @@ impl Board {
 
         // let mut new_cell = Cell::new(0);
         if result.len() == 1 {
-            self.cells[index].value = Some(*result.get(0).unwrap());
+            self.cells[index as usize].value = Some(*result.get(0).unwrap());
         } else {
-            self.cells[index].options = result;
+            self.cells[index as usize].options = result;
         }
 
         // self.cells[index] = new_cell;
     }
 
-    pub fn unsolved_cells(&self) -> Vec<usize> {
-        let indexes: Vec<usize> = self
+    pub fn unsolved_cells(&self) -> Vec<u8> {
+        let indexes: Vec<u8> = self
             .cells
             .clone()
             .into_iter()
             .enumerate()
             .filter(|(_, c)| c.value.is_none())
-            .map(|(i, _)| i)
+            .map(|(i, _)| i as u8)
             .collect();
         indexes
     }
@@ -286,7 +286,7 @@ impl Board {
 
     // index will be 0-8, representing the 0-indexed column to retrieve,
     // starting from left to right
-    pub fn get_col(&self, col_num: i32) -> [Cell; 9] {
+    pub fn get_col(&self, col_num: u8) -> [Cell; 9] {
         let mut cells: [Cell; 9] = [
             Default::default(),
             Default::default(),
@@ -307,7 +307,7 @@ impl Board {
 
     // index will be 0-8, representing the 0-indexed row to retrieve,
     // starting from the top to bottom
-    pub fn get_row(&self, row_num: i32) -> [Cell; 9] {
+    pub fn get_row(&self, row_num: u8) -> [Cell; 9] {
         let mut cells: [Cell; 9] = [
             Default::default(),
             Default::default(),
@@ -327,11 +327,11 @@ impl Board {
     }
 }
 
-fn c(value: i32) -> Cell {
+fn c(value: u8) -> Cell {
     Cell::new(value, false)
 }
 
-fn i(value: i32) -> Cell {
+fn i(value: u8) -> Cell {
     Cell::new(value, true)
 }
 
@@ -424,7 +424,7 @@ fn main() {
     let mut b = Board::new(cells);
     println!("Starting 🤖\n{}", b);
 
-    for i in 1..=10 {
+    for _i in 1..=10 {
         let num_unsolved = b.unsolved_cells().len();
         if num_unsolved == 0 {
             println!("Solved! 💪\n{}", b);
