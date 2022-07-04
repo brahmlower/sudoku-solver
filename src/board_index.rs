@@ -1,7 +1,7 @@
 use std::fmt;
 
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct BoardIndex {
     pub value: u8
 }

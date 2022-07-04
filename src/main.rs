@@ -127,21 +127,12 @@ impl Board {
         )
     }
 
-    fn indexes_to_cells(&self, indexes: Vec<BoardIndex>) -> Vec<&Cell> {
+    fn get_cells(&self, indexes: &Vec<BoardIndex>) -> Vec<&Cell> {
         indexes
             .iter()
             .map(|bi| &self.cells[bi.value as usize])
             .collect()
     }
-
-    // fn indexes_to_values(&self, indexes: Vec<BoardIndex>) -> Vec<u8> {
-    //     indexes
-    //         .iter()
-    //         .map(|bi| self.cells[bi.value as usize].value)
-    //         .filter(|v| v.is_some())
-    //         .map(|v| v.unwrap())
-    //         .collect()
-    // }
 
     pub fn get_cell(&self, index: &BoardIndex) -> &Cell {
         &self.cells[index.value as usize]
@@ -157,29 +148,18 @@ impl Board {
             return;
         }
 
-        let col_values = cells_to_values(
-            self.indexes_to_cells(
-                index.entangled_col_indexes()
-            )
-        );
-
-        let row_values = cells_to_values(
-            self.indexes_to_cells(
-                index.entangled_row_indexes()
-            )
-        );
-
-        let box_values = cells_to_values(
-            self.indexes_to_cells(
-                index.entangled_box_indexes()
-            )
-        );
-
-        let mut existing_values = [
-            col_values,
-            row_values,
-            box_values,
+        let mut entangled_indexes: Vec<BoardIndex> = [
+            index.entangled_col_indexes(),
+            index.entangled_row_indexes(),
+            index.entangled_box_indexes(),
         ].concat();
+
+        entangled_indexes.sort();
+        entangled_indexes.dedup();
+
+        let entangled_cells:Vec<&Cell> = self.get_cells(&entangled_indexes);
+
+        let mut existing_values = cells_to_values(entangled_cells);
 
         existing_values.sort();
         existing_values.dedup();
@@ -194,7 +174,12 @@ impl Board {
         }
 
         if result.len() == 1 {
-            self.get_cell_mut(index).value = Some(*result.first().unwrap());
+            let collapsed_value = *result.first().unwrap();
+            self.get_cell_mut(index).value = Some(collapsed_value);
+            for ebi in &entangled_indexes {
+                let cell = self.get_cell_mut(&ebi);
+                cell.options.retain(|i| *i != collapsed_value);
+            }
         } else {
             self.get_cell_mut(index).options = result;
         }
