@@ -4,6 +4,7 @@ use std::fmt;
 
 mod board_index;
 
+use board_index::BoardLocation;
 use board_index::BoardIndex;
 
 fn num_to_superscript(number: usize) -> &'static str {
@@ -23,16 +24,10 @@ fn num_to_superscript(number: usize) -> &'static str {
 
 #[derive(Debug, Clone)]
 struct Cell {
-    index: u8,
+    index: BoardIndex,
     initial: bool,
     value: Option<u8>,
     options: Vec<u8>,
-}
-
-impl std::default::Default for Cell {
-    fn default() -> Cell {
-        Cell::new(0, false)
-    }
 }
 
 impl fmt::Display for Cell {
@@ -46,14 +41,16 @@ impl fmt::Display for Cell {
             }
             return write!(f, "{}", value);
         } else {
-            let value: String = num_to_superscript(self.options.len()).dimmed().to_string();
+            let value: String = num_to_superscript(self.options.len())
+                .dimmed()
+                .to_string();
             return write!(f, "{}", value);
         }
     }
 }
 
 impl Cell {
-    pub fn new(input: u8, initial: bool) -> Cell {
+    pub fn new(index: BoardIndex, input: u8, is_initial: bool) -> Cell {
         let value = if input == 0 { None } else { Some(input) };
         let options: Vec<u8>;
         if value.is_some() {
@@ -62,8 +59,8 @@ impl Cell {
             options = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         }
         Cell {
-            index: 0,
-            initial: initial,
+            index: index,
+            initial: is_initial,
             value: value,
             options: options,
         }
@@ -77,12 +74,6 @@ impl Cell {
     // }
 }
 
-impl BoardIndex for Cell {
-    fn board_index(&self) -> u8 {
-        self.index
-    }
-}
-
 #[derive(Debug, Clone)]
 struct Board {
     cells: [Cell; 81],
@@ -90,37 +81,15 @@ struct Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "┏━━━━━━━┳━━━━━━━┳━━━━━━━┓\n").unwrap();
-        write!(f, "{}\n", self.render_row(0)).unwrap();
-        write!(f, "{}\n", self.render_row(1)).unwrap();
-        write!(f, "{}\n", self.render_row(2)).unwrap();
-        write!(f, "┣━━━━━━━╋━━━━━━━╋━━━━━━━┫\n").unwrap();
-        write!(f, "{}\n", self.render_row(3)).unwrap();
-        write!(f, "{}\n", self.render_row(4)).unwrap();
-        write!(f, "{}\n", self.render_row(5)).unwrap();
-        write!(f, "┣━━━━━━━╋━━━━━━━╋━━━━━━━┫\n").unwrap();
-        write!(f, "{}\n", self.render_row(6)).unwrap();
-        write!(f, "{}\n", self.render_row(7)).unwrap();
-        write!(f, "{}\n", self.render_row(8)).unwrap();
-        write!(f, "┗━━━━━━━┻━━━━━━━┻━━━━━━━┛").unwrap();
-        Ok(())
+        write!(f, "{}", self.render())
     }
 }
 
-fn index_to_col(index: u8) -> u8 {
-    index % 9
-}
-
-fn index_to_row(index: u8) -> u8 {
-    index / 9
-}
-
-fn index_to_box(index: u8) -> u8 {
-    let col = index_to_col(index);
-    let row = index_to_row(index);
-    let result = ((row / 3) * 3) + (col / 3);
-    // println!("index {} with result {}. (row {}, col {})", index, result, row, col);
-    result
+fn cells_to_values(cells: Vec<&Cell>) -> Vec<u8> {
+    cells.into_iter()
+        .filter(|v| v.value.is_some())
+        .map(|v| v.value.clone().unwrap())
+        .collect()
 }
 
 impl Board {
@@ -128,83 +97,19 @@ impl Board {
         Board { cells: cells }
     }
 
-    pub fn collapse_cell(&mut self, index: u8) {
-        let cell = &self.cells[index as usize];
-        if cell.value.is_some() {
-            return;
-        }
-
-        let mut existing_values: Vec<u8> = vec![];
-        // Get the cells in the column
-        let col = index_to_col(index);
-        let col_values: Vec<u8> = self
-            .get_col(col)
-            .iter()
-            .filter(|c| c.value.is_some())
-            .map(|c| c.value.unwrap())
-            .collect();
-        // println!("col_values: {:?}", col_values);
-        existing_values = [existing_values, col_values].concat();
-
-        // Get the cells in the row
-        let row = index_to_row(index);
-        let row_values = self
-            .get_row(row)
-            .iter()
-            .filter(|c| c.value.is_some())
-            .map(|c| c.value.unwrap())
-            .collect();
-        // println!("row_values: {:?}", row_values);
-        existing_values = [existing_values, row_values].concat();
-
-        // Get the cells in the box
-        let box_ = index_to_box(index);
-
-        let box_values = self
-            .get_box(box_ as i32)
-            .iter()
-            .filter(|c| c.value.is_some())
-            .map(|c| c.value.unwrap())
-            .collect();
-        // println!("box index: {:?}", box_);
-        // println!("box_values: {:?}", box_values);
-        existing_values = [existing_values, box_values].concat();
-
-        existing_values.sort();
-        existing_values.dedup();
-
-        // println!("existing options: {:?}", cell.options);
-        // println!("existing values: {:?}", existing_values);
-
-        let s1: HashSet<u8> = cell.options.iter().cloned().collect();
-        let s2: HashSet<u8> = existing_values.iter().cloned().collect();
-        let result: Vec<u8> = (&s1 - &s2).into_iter().collect();
-
-        // println!("result: {:?}", result);
-        // if result.len() == 0 {
-        //     println!("{}", self);
-        // }
-
-        // let mut new_cell = Cell::new(0);
-        if result.len() == 1 {
-            self.cells[index as usize].value = Some(*result.get(0).unwrap());
-        } else {
-            self.cells[index as usize].options = result;
-        }
-
-        // self.cells[index] = new_cell;
-    }
-
-    pub fn unsolved_cells(&self) -> Vec<u8> {
-        let indexes: Vec<u8> = self
-            .cells
-            .clone()
-            .into_iter()
-            .enumerate()
-            .filter(|(_, c)| c.value.is_none())
-            .map(|(i, _)| i as u8)
-            .collect();
-        indexes
+    fn render(&self) -> String {
+        format!(
+            "┏━━━━━━━┳━━━━━━━┳━━━━━━━┓\n{}\n{}\n{}\n┣━━━━━━━╋━━━━━━━╋━━━━━━━┫\n{}\n{}\n{}\n┣━━━━━━━╋━━━━━━━╋━━━━━━━┫\n{}\n{}\n{}\n┗━━━━━━━┻━━━━━━━┻━━━━━━━┛",
+            self.render_row(0),
+            self.render_row(1),
+            self.render_row(2),
+            self.render_row(3),
+            self.render_row(4),
+            self.render_row(5),
+            self.render_row(6),
+            self.render_row(7),
+            self.render_row(8),
+        )
     }
 
     fn render_row(&self, row_num: usize) -> String {
@@ -222,191 +127,201 @@ impl Board {
         )
     }
 
-    // index will be 0-8, represeting the box to retieve, 0 starting in the
-    // top left and 8 being in the bottom right
-    pub fn get_box(&self, box_num: i32) -> [Cell; 9] {
-        let row = (box_num / 3) * 3; // 8 / 3 => 2 / 3 => 6
-        let col = (box_num * 3) % 9;
-        let mut cells: [Cell; 9] = [
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-        ];
-        // first row
-        for pos in 0..3 {
-            let index = (row * 9) + col + pos;
-            cells[pos as usize] = self.cells[index as usize].clone();
-        }
-        // second row
-        for pos in 0..3 {
-            let index = ((row + 1) * 9) + col + pos;
-            cells[pos as usize + 3] = self.cells[index as usize].clone();
-        }
-        // third row
-        for pos in 0..3 {
-            let index = ((row + 2) * 9) + col + pos;
-            cells[pos as usize + 6] = self.cells[index as usize].clone();
-        }
-        cells
+    fn indexes_to_cells(&self, indexes: Vec<BoardIndex>) -> Vec<&Cell> {
+        indexes
+            .iter()
+            .map(|bi| &self.cells[bi.value as usize])
+            .collect()
     }
 
-    // index will be 0-8, representing the 0-indexed column to retrieve,
-    // starting from left to right
-    pub fn get_col(&self, col_num: u8) -> [Cell; 9] {
-        let mut cells: [Cell; 9] = [
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-        ];
-        for pos in 0..9 {
-            let index = (pos * 9) + col_num;
-            cells[pos as usize] = self.cells[index as usize].clone();
-        }
-        cells
+    // fn indexes_to_values(&self, indexes: Vec<BoardIndex>) -> Vec<u8> {
+    //     indexes
+    //         .iter()
+    //         .map(|bi| self.cells[bi.value as usize].value)
+    //         .filter(|v| v.is_some())
+    //         .map(|v| v.unwrap())
+    //         .collect()
+    // }
+
+    pub fn get_cell(&self, index: &BoardIndex) -> &Cell {
+        &self.cells[index.value as usize]
     }
 
-    // index will be 0-8, representing the 0-indexed row to retrieve,
-    // starting from the top to bottom
-    pub fn get_row(&self, row_num: u8) -> [Cell; 9] {
-        let mut cells: [Cell; 9] = [
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
-        ];
-        for pos in 0..9 {
-            let index = (row_num * 9) + pos;
-            cells[pos as usize] = self.cells[index as usize].clone();
+    pub fn get_cell_mut(&mut self, index: &BoardIndex) -> &mut Cell {
+        &mut self.cells[index.value as usize]
+    }
+
+    pub fn collapse_cell(&mut self, index: &BoardIndex) {
+        let cell = self.get_cell(index);
+        if cell.value.is_some() {
+            return;
         }
-        cells
+
+        let col_values = cells_to_values(
+            self.indexes_to_cells(
+                index.entangled_col_indexes()
+            )
+        );
+
+        let row_values = cells_to_values(
+            self.indexes_to_cells(
+                index.entangled_row_indexes()
+            )
+        );
+
+        let box_values = cells_to_values(
+            self.indexes_to_cells(
+                index.entangled_box_indexes()
+            )
+        );
+
+        let mut existing_values = [
+            col_values,
+            row_values,
+            box_values,
+        ].concat();
+
+        existing_values.sort();
+        existing_values.dedup();
+
+        let s1: HashSet<u8> = cell.options.iter().cloned().collect();
+        let s2: HashSet<u8> = existing_values.iter().cloned().collect();
+        let result: Vec<u8> = (&s1 - &s2).into_iter().collect();
+
+        if result.len() == 0 {
+            println!("Comparing s1 to s2: {:?}, {:?}", s1, s2);
+            panic!("Diff between available options and possible options was 0");
+        }
+
+        if result.len() == 1 {
+            self.get_cell_mut(index).value = Some(*result.first().unwrap());
+        } else {
+            self.get_cell_mut(index).options = result;
+        }
+    }
+
+    pub fn unsolved_indexes(&self) -> Vec<BoardIndex> {
+        let indexes: Vec<BoardIndex> = self
+            .cells
+            .clone()
+            .into_iter()
+            .filter(|c| c.value.is_none())
+            .map(|c| c.index)
+            .collect();
+        indexes
     }
 }
 
-fn c(value: u8) -> Cell {
-    Cell::new(value, false)
+fn c(index: u8, value: u8) -> Cell {
+    let bi = BoardIndex::new(index).unwrap();
+    Cell::new(bi, value, false)
 }
 
-fn i(value: u8) -> Cell {
-    Cell::new(value, true)
+fn i(index: u8, value: u8) -> Cell {
+    let bi = BoardIndex::new(index).unwrap();
+    Cell::new(bi, value, true)
 }
 
 fn main() {
     // https://sudoku.com/easy/
     let cells: [Cell; 81] = [
-        c(0),
-        i(4),
-        c(0),
-        i(6),
-        c(0),
-        i(2),
-        c(0),
-        i(3),
-        i(1),
-        c(0),
-        c(0),
-        c(0),
-        c(0),
-        c(0),
-        i(1),
-        i(6),
-        c(0),
-        i(9),
-        i(6),
-        c(0),
-        c(0),
-        i(5),
-        i(4),
-        c(0),
-        i(8),
-        i(2),
-        i(7),
-        c(0),
-        c(0),
-        i(2),
-        i(7),
-        i(6),
-        c(0),
-        c(0),
-        i(8),
-        c(0),
-        i(5),
-        c(0),
-        i(6),
-        c(0),
-        c(0),
-        c(0),
-        c(0),
-        i(7),
-        i(4),
-        c(0),
-        i(8),
-        i(7),
-        c(0),
-        c(0),
-        i(5),
-        c(0),
-        i(6),
-        i(2),
-        i(1),
-        i(6),
-        c(0),
-        c(0),
-        i(8),
-        c(0),
-        c(0),
-        i(5),
-        c(0),
-        i(8),
-        i(2),
-        c(0),
-        c(0),
-        c(0),
-        i(7),
-        c(0),
-        i(9),
-        c(0),
-        i(7),
-        c(0),
-        c(0),
-        c(0),
-        c(0),
-        i(6),
-        i(2),
-        c(0),
-        c(0),
+        c(0, 0),
+        i(1, 4),
+        c(2, 0),
+        i(3, 6),
+        c(4, 0),
+        i(5, 2),
+        c(6, 0),
+        i(7, 3),
+        i(8, 1),
+        c(9, 0),
+        c(10, 0),
+        c(11, 0),
+        c(12, 0),
+        c(13, 0),
+        i(14, 1),
+        i(15, 6),
+        c(16, 0),
+        i(17, 9),
+        i(18, 6),
+        c(19, 0),
+        c(20, 0),
+        i(21, 5),
+        i(22, 4),
+        c(23, 0),
+        i(24, 8),
+        i(25, 2),
+        i(26, 7),
+        c(27, 0),
+        c(28, 0),
+        i(29, 2),
+        i(30, 7),
+        i(31, 6),
+        c(32, 0),
+        c(33, 0),
+        i(34, 8),
+        c(35, 0),
+        i(36, 5),
+        c(37, 0),
+        i(38, 6),
+        c(39, 0),
+        c(40, 0),
+        c(41, 0),
+        c(42, 0),
+        i(43, 7),
+        i(44, 4),
+        c(45, 0),
+        i(46, 8),
+        i(47, 7),
+        c(48, 0),
+        c(49, 0),
+        i(50, 5),
+        c(51, 0),
+        i(52, 6),
+        i(53, 2),
+        i(54, 1),
+        i(55, 6),
+        c(56, 0),
+        c(57, 0),
+        i(58, 8),
+        c(59, 0),
+        c(60, 0),
+        i(61, 5),
+        c(62, 0),
+        i(63, 8),
+        i(64, 2),
+        c(65, 0),
+        c(66, 0),
+        c(67, 0),
+        i(68, 7),
+        c(69, 0),
+        i(70, 9),
+        c(71, 0),
+        i(72, 7),
+        c(73, 0),
+        c(74, 0),
+        c(75, 0),
+        c(76, 0),
+        i(77, 6),
+        i(78, 2),
+        c(79, 0),
+        c(80, 0),
     ];
 
     let mut b = Board::new(cells);
     println!("Starting 🤖\n{}", b);
 
-    for _i in 1..=10 {
-        let num_unsolved = b.unsolved_cells().len();
+    for i in 1..=10 {
+        let num_unsolved = b.unsolved_indexes().len();
         if num_unsolved == 0 {
             println!("Solved! 💪\n{}", b);
             break;
         }
-        // println!("Starting itteration {} ({} unsolved):\n{}", i, num_unsolved, b);
+        println!("Starting itteration {} ({} unsolved):\n{}", i, num_unsolved, b);
 
         // Do one attempt at each cell starting from top-left to bottom-right
-        for index in b.unsolved_cells() {
-            b.collapse_cell(index);
+        for index in b.unsolved_indexes() {
+            b.collapse_cell(&index);
         }
     }
 }
