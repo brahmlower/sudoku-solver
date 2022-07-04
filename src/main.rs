@@ -2,6 +2,10 @@ use colored::Colorize;
 use std::collections::HashSet;
 use std::fmt;
 
+mod board_index;
+
+use board_index::BoardIndex;
+
 fn num_to_superscript(number: usize) -> &'static str {
     match number {
         1 => "\u{00B9}",
@@ -17,48 +21,9 @@ fn num_to_superscript(number: usize) -> &'static str {
     }
 }
 
-// fn cell_above(index: i32) -> Option<i32> {
-//     let row = index / 9;
-//     if row == 0 {
-//         return None;
-//     }
-//     let col = index % 9;
-//     let value = ((row - 1) * 9) + col;
-//     return Some(value);
-// }
-
-// fn cell_below(index: i32) -> Option<i32> {
-//     let row = index / 9; // 80/9 = 8
-//     if row == 8 {
-//         return None;
-//     }
-//     let col = index % 9;
-//     let value = ((row + 1) * 9) + col;
-//     return Some(value);
-// }
-
-// fn cell_left(index: i32) -> Option<i32> {
-//     let col = index % 9;
-//     if col == 0 {
-//         return None;
-//     }
-//     let row = index / 9;
-//     let value = (row * 9) + (col - 1);
-//     return Some(value);
-// }
-
-// fn cell_right(index: i32) -> Option<i32> {
-//     let col = index % 9;
-//     if col == 8 {
-//         return None;
-//     }
-//     let row = index / 9;
-//     let value = (row * 9) + (col + 1);
-//     return Some(value);
-// }
-
 #[derive(Debug, Clone)]
 struct Cell {
+    index: u8,
     initial: bool,
     value: Option<u8>,
     options: Vec<u8>,
@@ -97,6 +62,7 @@ impl Cell {
             options = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         }
         Cell {
+            index: 0,
             initial: initial,
             value: value,
             options: options,
@@ -109,6 +75,12 @@ impl Cell {
     //     }
     //     self.options.len()
     // }
+}
+
+impl BoardIndex for Cell {
+    fn board_index(&self) -> u8 {
+        self.index
+    }
 }
 
 #[derive(Debug, Clone)]
