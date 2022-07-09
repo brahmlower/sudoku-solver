@@ -148,16 +148,9 @@ impl Board {
             return;
         }
 
-        let mut entangled_indexes: Vec<BoardIndex> = [
-            index.entangled_col_indexes(),
-            index.entangled_row_indexes(),
-            index.entangled_box_indexes(),
-        ].concat();
+        let entangled_indexes = index.entangled_indexes();
 
-        entangled_indexes.sort();
-        entangled_indexes.dedup();
-
-        let entangled_cells:Vec<&Cell> = self.get_cells(&entangled_indexes);
+        let entangled_cells = self.get_cells(&entangled_indexes);
 
         let mut existing_values = cells_to_values(entangled_cells);
 

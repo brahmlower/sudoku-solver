@@ -148,11 +148,14 @@ pub trait BoardLocation {
     }
 
     fn entangled_indexes(&self) -> Vec<BoardIndex> {
-        [
+        let mut entangled_indexes = [
             self.entangled_box_indexes(),
             self.entangled_col_indexes(),
             self.entangled_row_indexes(),
-        ].concat()
+        ].concat();
+        entangled_indexes.sort();
+        entangled_indexes.dedup();
+        entangled_indexes
     }
 }
 
